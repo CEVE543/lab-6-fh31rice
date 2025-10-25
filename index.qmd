@@ -112,10 +112,370 @@ While it probably can answer the whole lab for you, that would defeat the entire
 ## Code
 
 ```{julia}
+#| cache: true
 #| output: false
 using Pkg
 lab_dir = dirname(@__FILE__)
 Pkg.activate(lab_dir)
-# Pkg.instantiate() # uncomment this the first time you run the lab to install packages, then comment it back
+Pkg.instantiate() # uncomment this the first time you run the lab to install packages, then comment it back
 ```
 
+```{julia}
+import Pkg; Pkg.add("YAXArrays")
+```
+
+```{julia}
+using YAXArrays
+using YAXArrays: YAXArrays as YAX
+
+a = YAXArray(rand(2,3))
+```
+```{julia}
+# axes or dimensions with name and tick values
+axlist = (
+    YAX.time(range(1, 20, length=20)),
+    lon(range(1, 10, length=10)),
+    lat(range(1, 5, length=15)),
+    Variables(["temperature", "precipitation"])
+)
+
+# the actual data matching the dimensions defined in axlist
+data = rand(20, 10, 15, 2)
+
+# metadata about the array
+props = Dict(
+    "origin" => "YAXArrays.jl example",
+    "x" => "longitude",
+    "y" => "latitude",
+);
+
+a2 = YAXArray(axlist, data, props)
+```
+```{julia}
+a2[Variables=At("temperature"), time=1].data
+```
+```{julia}
+#####DimensionalData.jl
+using Pkg
+Pkg.add("DimensionalData")
+```
+```{julia}
+using DimensionalData
+```
+```{julia}
+A = DimArray(rand(4,5), (a=1:4, b=1:5))
+```
+```{julia}
+C = DimArray(rand(Int8, 10), (alpha='a':'j',))
+```
+```{julia}
+data = rand(Int8, 2, 10, 3) .|> abs
+```
+```{julia}
+B = DimArray(data, (channel=[:left, :right], time=1:10, iter=1:3))
+```
+```{julia}
+using DimensionalData
+```
+```{julia}
+ X(1)
+```
+```{julia}
+X(1), Y(2), Z(3)
+```
+```{julia}
+Dim{:a}(1), Dim{:b}(1)
+```
+```{julia}
+val(X(1))
+```
+```{julia}
+using DimensionalData
+```
+```{julia}
+A = rand(X(1.0:0.2:2.0), Y([:a, :b, :c]))
+```
+```{julia}
+ A[X=At(1.2), Y=At(:c)]
+```
+```{julia}
+ A[X=At(0.99:0.201:1.5; atol=0.05)]
+```
+```{julia}
+A[X=At(1.2:0.2:1.5), Y=At([:a, :c])]
+```
+```{julia}
+using DimensionalData.Lookups
+```
+```{julia}
+l = Sampled(10.0:10.0:100.0; order=ForwardOrdered(), span=Regular(10.0), sampling=Intervals(Start()))
+```
+```{julia}
+l = Sampled([13, 8, 5, 3, 2, 1]; order=ForwardOrdered(), span=Irregular(1, 21), sampling=Intervals(Start()))
+```
+```{julia}
+A = DimArray(rand(7, 5), (X(10:10:70), Y([:a, :b, :c, :d, :e])))
+```
+```{julia}
+###Dimselector
+A = rand(X(1.0:0.2:2.0), Y(10:2:20))
+```
+```{julia}
+B = rand(X(1.0:0.04:2.0), Y(20:-1:10))
+```
+```{julia}
+B[DimSelectors(A)]
+```
+```{julia}
+C = rand(X(1.0:0.007:2.0), Y(10.0:0.9:30))
+```
+```{julia}
+C[DimSelectors(A; selectors=Near)]
+```
+```{julia}
+using YAXArrays
+using NetCDF
+using Downloads: download
+
+path = download("https://archive.unidata.ucar.edu/software/netcdf/examples/tos_O1_2001-2002.nc", "example.nc")
+ds = open_dataset(path)
+```
+```{julia}
+tos = ds.tos
+```
+```{julia}
+tos = ds.cubes[:tos]
+```
+```{julia}
+tos[lon = 1, lat = 1]
+```
+```{julia}
+tos[lon = At(1), lat = At(-79.5)]
+```
+```{julia}
+import Pkg
+Pkg.add("CFTime")
+```
+```{julia}
+using CFTime
+```
+```{julia}
+tos[lon = 1:10, lat = 1:10]
+```
+```{julia}
+tos[lon = At(1.0:2:19), lat = At(-79.5:1:-70.5)]
+```
+```{julia}
+tos[lon = At(1:10; atol = 1)]
+```
+```{julia}
+tos[lon = 90 .. 180]
+```
+```{julia}
+import Pkg
+Pkg.add("IntervalSets")
+```
+```{julia}
+using IntervalSets
+```
+```{julia}
+tos[lon = OpenInterval(90, 180)]
+```
+```{julia}
+tos[lon = ClosedInterval(90, 180)]
+```
+```{julia}
+tos[lon =Interval{:open,:closed}(90,180)]
+```
+```{julia}
+tos[lon =Interval{:closed,:open}(90,180)]
+```
+```{julia}
+collect(tos.lat)
+```
+```{julia}
+lookup(tos, :lon)
+```
+```{julia}
+tos.lon.val
+```
+```{julia}
+import Pkg; Pkg.add("CairoMakie")
+import Pkg; Pkg.add("CairoMakie")
+using Zarr, YAXArrays, Dates
+using DimensionalData
+using CairoMakie, CairoMakie
+using CairoMakie.GeometryBasics
+
+store ="gs://cmip6/CMIP6/ScenarioMIP/DKRZ/MPI-ESM1-2-HR/ssp585/r1i1p1f1/3hr/tas/gn/v20190710/"
+```
+```{julia}
+g = open_dataset(zopen(store, consolidated=true))
+```
+```{julia}
+c = g["tas"];
+```
+```{julia}
+ct1_slice = c[time = Near(Date("2015-01-01"))];
+```
+```{julia}
+#| cache: true
+lon_d = lookup(ct1_slice, :lon)
+lat_d = lookup(ct1_slice, :lat)
+data_d = ct1_slice.data[:,:];
+```
+```{julia}
+#| cache: true
+using GLMakie
+GLMakie.activate!()
+
+fig, ax, plt = heatmap(ct1_slice;
+    colormap = :seaborn_icefire_gradient,
+    axis = (; aspect = DataAspect()),
+    figure = (; size = (600, 300), fontsize = 24)
+)
+fig
+```
+```{julia}
+δlon = (lon_d[2] - lon_d[1])/2
+nlon = lon_d .- 180 .+ δlon
+ndata = circshift(data_d, (192,1))
+```
+```{julia}
+using CairoMakie
+using GeoMakie
+fig = Figure(resolution = (1200, 600))
+ax = GeoAxis(fig[1, 1])
+surface!(ax, nlon, lat_d, ndata; colormap = :seaborn_icefire_gradient, shading=false)
+cl=lines!(ax, GeoMakie.coastlines(), color = :white, linewidth=0.85)
+translate!(cl, 0, 0, 1000)
+fig
+```
+```{julia}
+fig = Figure(; size=(1200,600))
+ax = GeoAxis(fig[1,1]; dest = "+proj=moll")
+surface!(ax, nlon, lat_d, ndata; colormap = :seaborn_icefire_gradient, shading=false)
+cl=lines!(ax, GeoMakie.coastlines(), color = :white, linewidth=0.85)
+translate!(cl, 0, 0, 1000)
+fig
+```
+```{julia}
+import Pkg
+Pkg.add("Cairo")
+Pkg.add("GeometryBasics")
+
+using CairoMakie
+using GeometryBasics   
+CairoMakie.activate!()
+
+ds = replace(ndata, missing =>NaN)
+sphere = uv_normal_mesh(Tesselation(Sphere(Point3f(0), 1), 128))
+
+fig = Figure(backgroundcolor=:grey25, size=(500,500))
+ax = LScene(fig[1,1], show_axis=false)
+mesh!(ax, sphere; color = ds'[end:-1:1,:], shading=false,
+    colormap = :seaborn_icefire_gradient)
+zoom!(ax.scene, cameracontrols(ax.scene), 0.5)
+rotate!(ax.scene, 2.5)
+fig
+```
+```{julia}
+using Zarr, Statistics, CairoMakie
+
+
+url = "gs://cmip6/CMIP6/ScenarioMIP/DKRZ/MPI-ESM1-2-HR/ssp585/r1i1p1f1/3hr/tas/gn/v20190710/"
+
+
+group = zopen(url; consolidated=true)
+
+
+tas  = group["tas"]
+latitudes  = group["lat"][:]
+longitudes = group["lon"][:]
+times      = group["time"][:]
+```
+```{julia}
+lat_range = (20, 40)
+lon_range = (90, 110)
+
+lat_mask = (latitudes .>= lat_range[1]) .& (latitudes .<= lat_range[2])
+lon_mask = (longitudes .>= lon_range[1]) .& (longitudes .<= lon_range[2])
+
+lat_idx = findall(lat_mask)
+lon_idx = findall(lon_mask)
+
+tas_region = Array(tas[lat_idx, lon_idx, :])
+
+```
+```{julia}
+weights = cosd.(latitudes[lat_idx])
+weights ./= sum(weights)  
+
+
+regional_mean = [mean(tas_region[:, :, t] .* weights', dims=(1,2)) for t in 1:size(tas_region, 3)]
+regional_mean = [x[1] for x in regional_mean]
+
+```
+```{julia}
+using CFTime
+using Dates
+
+
+dates = collect(DateTime(2000, 1, 1):Hour(3):(DateTime(2000, 1, 1) + Hour(3)*(length(regional_mean)-1)))
+
+
+fig = Figure(; size=(900, 400))
+ax = Axis(fig[1, 1],
+    title="Regional Mean Near-Surface Air Temperature (3-hourly)",
+    xlabel="Year",
+    ylabel="Temperature (K)")
+
+lines!(ax, dates, regional_mean, color=:red, linewidth=2)
+fig
+
+```
+```{julia}
+
+tmax = argmax(regional_mean)
+tmin = argmin(regional_mean)
+
+
+println("Hottest 3-hour period: ", dates[tmax])
+println("Coldest 3-hour period: ", dates[tmin])
+```
+```{julia}
+hot_map  = tas[:, :, tmax]
+cold_map = tas[:, :, tmin]
+
+```
+```{julia}
+using CairoMakie
+
+
+tmax = argmax(regional_mean)
+tmin = argmin(regional_mean)
+
+println(" Hottest 3-hour period: ", dates[tmax])
+println("Coldest 3-hour period: ", dates[tmin])
+
+
+hot_map  = Array(tas[:, :, tmax])
+cold_map = Array(tas[:, :, tmin])
+
+
+lons = Array(group["lon"][:])
+lats = Array(group["lat"][:])
+
+fig = Figure(size = (1000, 400))
+
+ax1 = Axis(fig[1, 1], title = "Hottest 3-hour Period (tas)")
+ax2 = Axis(fig[1, 2], title = "Coldest 3-hour Period (tas)")
+
+hm1 = heatmap!(ax1, lons, lats, hot_map; colormap = :seaborn_icefire_gradient)
+hm2 = heatmap!(ax2, lons, lats, cold_map; colormap = :seaborn_icefire_gradient)
+
+Colorbar(fig[1, 3], hm1; label = "Temperature (K)")
+fig
+
+
+```
